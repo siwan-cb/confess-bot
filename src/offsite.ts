@@ -2,7 +2,7 @@ import { Client, IdentifierKind, type Group, DecodedMessage, GroupPermissionsOpt
 import { log, isSameString } from "./helpers/utils.js";
 import { Signer } from "ethers";
 
-const BASE_SUMMIT_ADMIN_ADDRESS = "0x80245b9C0d2Ef322F2554922cA86Cf211a24047F"; // Admin address for Base Summit groups
+const BASE_SUMMIT_ADMIN_ADDRESS = "0x80D36e772b32288F80227Ce35EDd5F4eCCDEbB6E"; // Admin address for Base Summit groups
 
 const ANNOUNCEMENTS_GROUP_NAME = "📣 Announcements";
 const SOCIAL_GROUP_NAME = "🎉 Social";

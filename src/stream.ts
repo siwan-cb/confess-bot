@@ -88,6 +88,9 @@ export async function listenForMessages(
               );
               await announcementsGroup.addMembers([senderInboxId]);
               addedToAnnouncements = true;
+              const welcomeMessage = `Welcome to the Base Summit Announcements Group!`; // Define the message
+              await announcementsGroup.send(welcomeMessage); // Send the message to the group
+
               log(`Added ${senderInboxId} to ${announcementsGroup.name}`);
             } else {
               alreadyInAnnouncements = true;
@@ -111,6 +114,10 @@ export async function listenForMessages(
               log(`Adding new member ${senderInboxId} to ${socialGroup.name}...`);
               await socialGroup.addMembers([senderInboxId]);
               addedToSocial = true;
+                 // Add back the welcome message sent TO the group
+              const welcomeMessage = `Welcome to the Base Summit Social Group!`; // Define the message
+              await socialGroup.send(welcomeMessage); // Send the message to the group
+
               log(`Added ${senderInboxId} to ${socialGroup.name}`);
             } else {
               alreadyInSocial = true;

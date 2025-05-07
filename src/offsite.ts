@@ -4,8 +4,8 @@ import { Signer } from "ethers";
 
 const BASE_SUMMIT_ADMIN_ADDRESS = "0x80245b9C0d2Ef322F2554922cA86Cf211a24047F"; // Admin address for Base Summit groups
 
-const ANNOUNCEMENTS_GROUP_NAME = "Announcements ⭐";
-const SOCIAL_GROUP_NAME = "Social ⭐";
+const ANNOUNCEMENTS_GROUP_NAME = "📣 Announcements";
+const SOCIAL_GROUP_NAME = "🎉 Social";
 
 // Helper to find a group by its name
 const findGroupByName = async (client: Client, groupName: string): Promise<Group | undefined> => {

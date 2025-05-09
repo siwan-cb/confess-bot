@@ -132,7 +132,7 @@ export async function listenForMessages(
           // Send confirmation message
           let confirmationMessage = "";
           if (addedToAnnouncements && addedToSocial) {
-            confirmationMessage = `You've been added to the "${announcementsGroup.name}" and "${socialGroup.name}" groups. Check your message requests!`;
+            confirmationMessage = `You've been added to the "${announcementsGroup.name}" and "${socialGroup.name}" groups. You'll see the chat in your requests when a new message is sent!`;
           } else if (addedToAnnouncements && alreadyInSocial) {
             confirmationMessage = `You've been added to the "${announcementsGroup.name}" group. You were already in the "${socialGroup.name}" group.`;
           } else if (addedToSocial && alreadyInAnnouncements) {

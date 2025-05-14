@@ -63,7 +63,7 @@ async function saveConfession(confession: string, username: string) {
 }
 
 // Helper function to check guess
-async function checkGuess(guess: string): Promise<{ correct: boolean; confession?: string }> {
+async function checkGuess(guess: string): Promise<{ correct: boolean; confession?: string; error?: string }> {
   try {
     const gamePath = path.join(process.cwd(), 'src', 'game.json');
     const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
@@ -71,7 +71,12 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
     // Get the most recent confession
     const latestConfession = gameData.questions[gameData.questions.length - 1];
     if (!latestConfession) {
-      return { correct: false };
+      return { correct: false, error: "No game found" };
+    }
+
+    // Check if the latest confession is already complete
+    if (latestConfession.isComplete) {
+      return { correct: false, error: "This confession has already been guessed correctly. Wait for a new confession!" };
     }
 
     // Case-insensitive comparison of usernames
@@ -89,7 +94,7 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
     };
   } catch (error) {
     log(`[ERROR] Failed to check guess: ${error}`);
-    return { correct: false };
+    return { correct: false, error: "Failed to check your guess. Please try again." };
   }
 }
 
@@ -154,12 +159,25 @@ export async function listenForMessages(
               try {
                 log(`[GUESS] User ${senderInboxId} guessed: ${guess}`);
                 const result = await checkGuess(guess);
+                
+                if (result.error) {
+                  await conversation.send(result.error);
+                  continue;
+                }
+                
                 if (result.correct) {
                   await conversation.send("🎉 Correct guess! You found the confessor!");
-                  await socialGroup.send(`🎉 ${senderInboxId} correctly guessed who made the confession: "${result.confession}"`);
+                  // Send the confession as a new message
+                  await socialGroup.send(`💬 New Confession: "${result.confession}"`);
+                  // Send the correct guess as a separate message
+                  await socialGroup.send(`🎉 ${senderInboxId} correctly guessed who made this confession!`);
                   log(`[GUESS] User ${senderInboxId} made a correct guess!`);
                 } else {
                   await conversation.send("❌ Wrong guess. Try again!");
+                  // Send the confession as a new message if it hasn't been sent yet
+                  await socialGroup.send(`💬 New Confession: "${result.confession}"`);
+                  // Send the incorrect guess as a separate message
+                  await socialGroup.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
                   log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
                 }
                 continue;

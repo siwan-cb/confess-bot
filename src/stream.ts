@@ -1,5 +1,7 @@
 import { Client, DecodedMessage, Group } from "@xmtp/node-sdk";
 import { isSameString, log } from "./helpers/utils.js";
+import fs from 'fs/promises';
+import path from 'path';
 
 // --- Retry Logic Constants and Helper ---
 const MAX_RETRIES = 6; // Max number of retry attempts
@@ -7,6 +9,51 @@ const RETRY_DELAY_MS = 10000; // Delay between retries in milliseconds (10 secon
 
 // Helper function to pause execution
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Helper function to save confession to game.json
+async function saveConfession(confession: string, confessorAddress: string) {
+  try {
+    const gamePath = path.join(process.cwd(), 'src', 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
+    
+    gameData.questions.push({
+      question: confession,
+      answer: confessorAddress,
+      timestamp: new Date().toISOString()
+    });
+    
+    await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
+    return true;
+  } catch (error) {
+    log(`[ERROR] Failed to save confession: ${error}`);
+    return false;
+  }
+}
+
+// Helper function to check guess
+async function checkGuess(guess: string): Promise<{ correct: boolean; confession?: string }> {
+  try {
+    const gamePath = path.join(process.cwd(), 'src', 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
+    
+    // Get the most recent confession
+    const latestConfession = gameData.questions[gameData.questions.length - 1];
+    if (!latestConfession) {
+      return { correct: false };
+    }
+
+    // Case-insensitive comparison of wallet addresses
+    const isCorrect = latestConfession.answer.toLowerCase() === guess.toLowerCase();
+    return {
+      correct: isCorrect,
+      confession: latestConfession.question
+    };
+  } catch (error) {
+    log(`[ERROR] Failed to check guess: ${error}`);
+    return { correct: false };
+  }
+}
+
 // --- End of Retry Logic ---
 
 export async function listenForMessages(
@@ -60,6 +107,83 @@ export async function listenForMessages(
             continue;
           }
 
+          // Handle /guess command
+          const messageContent = message.content?.toString() || "";
+          if (messageContent.startsWith('/guess')) {
+            const guess = messageContent.slice('/guess'.length).trim();
+            if (guess) {
+              try {
+                log(`[GUESS] User ${senderInboxId} guessed: ${guess}`);
+                const result = await checkGuess(guess);
+                if (result.correct) {
+                  await conversation.send("🎉 Correct guess! You found the confessor!");
+                  await socialGroup.send(`🎉 ${senderInboxId} correctly guessed who made the confession: "${result.confession}"`);
+                  log(`[GUESS] User ${senderInboxId} made a correct guess!`);
+                } else {
+                  await conversation.send("❌ Wrong guess. Try again!");
+                  log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
+                }
+                continue;
+              } catch (error) {
+                log(`[ERROR] Failed to check guess: ${error}`);
+                await conversation.send("Sorry, I couldn't check your guess. Please try again.");
+                continue;
+              }
+            } else {
+              await conversation.send("Please provide a wallet address after /guess");
+              continue;
+            }
+          }
+
+          // Handle /confess command
+          if (messageContent.startsWith('/confess')) {
+            const confession = messageContent.slice('/confess'.length).trim();
+            if (confession) {
+              try {
+                // Send confession to social group
+                await socialGroup.send(`💬 New Confession: "${confession}"`);
+                
+                // Save to game.json with confessor's address as the answer
+                const saved = await saveConfession(confession, senderInboxId);
+                
+                if (saved) {
+                  await conversation.send("Confession saved successfully! Others will try to guess who made it.");
+                  log(`[GAME] New confession saved from ${senderInboxId}`);
+                } else {
+                  await conversation.send("Confession was sent to the group but failed to save. Please try again.");
+                }
+                continue;
+              } catch (error) {
+                log(`[ERROR] Failed to process confession: ${error}`);
+                await conversation.send("Sorry, I couldn't process your confession. Please try again.");
+                continue;
+              }
+            } else {
+              await conversation.send("Please provide a confession after /confess");
+              continue;
+            }
+          }
+
+          // Handle /shh command
+          if (messageContent.startsWith('/shh')) {
+            const relayMessage = messageContent.slice(4).trim(); // Remove '/shh' and trim whitespace
+            if (relayMessage) {
+              try {
+                await socialGroup.send(`🤫 ${relayMessage}`);
+                await conversation.send("Message relayed anonymously!");
+                log(`[RELAY] Anonymous message relayed to social group`);
+                continue;
+              } catch (error) {
+                log(`[ERROR] Failed to relay message: ${error}`);
+                await conversation.send("Sorry, I couldn't relay your message.");
+                continue;
+              }
+            } else {
+              await conversation.send("Please provide a message after /shh");
+              continue;
+            }
+          }
+
           // Explicitly check if the conversation is a Group
           if (conversation instanceof Group) {
             log(`[DEBUG] Skipping message ${message?.id}: Is a group chat.`);
@@ -88,9 +212,6 @@ export async function listenForMessages(
               );
               await announcementsGroup.addMembers([senderInboxId]);
               addedToAnnouncements = true;
-         // = `Welcome to the Base Summit Announcements Group!`; // Define the message
-         //     await announcementsGroup.send(welcomeMessage); // Send the message to the group
-
               log(`Added ${senderInboxId} to ${announcementsGroup.name}`);
             } else {
               alreadyInAnnouncements = true;
@@ -114,10 +235,6 @@ export async function listenForMessages(
               log(`Adding new member ${senderInboxId} to ${socialGroup.name}...`);
               await socialGroup.addMembers([senderInboxId]);
               addedToSocial = true;
-                 // Add back the welcome message sent TO the group
-     //         const welcomeMessage = `Welcome to the Base Summit Social Group!`; // Define the message
-        //      await socialGroup.send(welcomeMessage); // Send the message to the group
-
               log(`Added ${senderInboxId} to ${socialGroup.name}`);
             } else {
               alreadyInSocial = true;

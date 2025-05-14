@@ -3,15 +3,11 @@ import { log, isSameString } from "./helpers/utils.js";
 import { Signer } from "ethers";
 
 const BASE_SUMMIT_ADMIN_ADDRESS = "0x80D36e772b32288F80227Ce35EDd5F4eCCDEbB6E"; // Admin address for Base Summit groups
-
-const ANNOUNCEMENTS_GROUP_NAME = "📣 Announcements";
-const SOCIAL_GROUP_NAME = "🎉 Social";
+const CONFESS_GROUP_NAME = "🌶️🌶️ CONFESS 🌶️🌶️";
 
 // Helper to find a group by its name
 const findGroupByName = async (client: Client, groupName: string): Promise<Group | undefined> => {
   log(`[INFO] Looking for existing group: "${groupName}"...`);
-  // Assuming client.conversations.sync() is called before this if needed,
-  // or within the calling function like findOrCreateGroupByNameInternal.
   const conversations = await client.conversations.list();
   return conversations.find((g) => (g as Group).name === groupName) as Group | undefined;
 };
@@ -56,7 +52,7 @@ const addAdminToGroupInternal = async (group: Group, adminAddress: string) => {
 
   if (adminMember) {
     // Check if admin is already a super admin
-    const superAdmins = group.superAdmins; // Corrected: Access as a property
+    const superAdmins = group.superAdmins;
     if (superAdmins.includes(adminMember.inboxId)) {
       log(`[INFO] ${adminAddress} is already a super admin in group "${group.name}"`);
     } else {
@@ -102,27 +98,17 @@ async function findOrCreateGroupByNameInternal(
   return newGroup;
 }
 
-// Exported function to find or create both Base Summit groups
-export async function findOrCreateBaseSummitGroups(client: Client): Promise<{
-  announcementsGroup: Group;
-  socialGroup: Group;
-}> {
-  log(`[INFO] Finding or creating Base Summit groups...`);
+// Exported function to find or create the CONFESS group
+export async function findOrCreateConfessGroup(client: Client): Promise<Group> {
+  log(`[INFO] Finding or creating CONFESS group...`);
 
-  const announcementsGroup = await findOrCreateGroupByNameInternal(
+  const confessGroup = await findOrCreateGroupByNameInternal(
     client,
-    ANNOUNCEMENTS_GROUP_NAME,
-    "Announcements for Base Summit 2025",
+    CONFESS_GROUP_NAME,
+    "Anonymous confessions for Base Summit 2025",
     BASE_SUMMIT_ADMIN_ADDRESS
   );
 
-  const socialGroup = await findOrCreateGroupByNameInternal(
-    client,
-    SOCIAL_GROUP_NAME,
-    "Social chat for Base Summit 2025 attendees",
-    BASE_SUMMIT_ADMIN_ADDRESS
-  );
-
-  log(`[INFO] Base Summit groups processed.`);
-  return { announcementsGroup, socialGroup };
-} 
+  log(`[INFO] CONFESS group processed.`);
+  return confessGroup;
+}

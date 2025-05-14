@@ -120,24 +120,19 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
 
 export async function listenForMessages(
   client: Client,
-  groups: { announcementsGroup: Group; socialGroup: Group }
+  group: Group
 ) {
   let retryCount = 0;
-  const { announcementsGroup, socialGroup } = groups;
-
   // Outer loop for retry mechanism
   while (retryCount < MAX_RETRIES) {
     try {
       log(
         `Starting message stream... (Attempt ${retryCount + 1}/${MAX_RETRIES})`
       );
-      // Initialize the stream within the try block
       const stream = await client.conversations.streamAllMessages();
       log("Message stream started successfully. Waiting for messages...");
 
-      // Process messages from the stream
       for await (const message of stream) {
-        // Simplified skip logic: only check for self and non-text initially
         if (shouldSkip(message, client)) {
           log(
             `[DEBUG] Skipping message ${message?.id}: Self-message or non-text content.`
@@ -173,44 +168,39 @@ export async function listenForMessages(
           const messageContent = message.content?.toString() || "";
           if (messageContent.startsWith('/guess')) {
             const guess = messageContent.slice('/guess'.length).trim();
-            if (!guess) {
-              await conversation.send(
-                "To make a guess, use the format:\n" +
-                "/guess [username]\n\n" +
-                "Example:\n" +
-                "/guess alice"
-              );
-              continue;
-            }
-            
-            try {
-              log(`[GUESS] User ${senderInboxId} guessed: ${guess}`);
-              const result = await checkGuess(guess);
-              
-              if (result.error) {
-                await conversation.send(result.error);
+            if (guess) {
+              try {
+                log(`[GUESS] User ${senderInboxId} guessed: ${guess}`);
+                const result = await checkGuess(guess);
+                
+                if (result.error) {
+                  await conversation.send(result.error);
+                  continue;
+                }
+                
+                if (result.correct) {
+                  await conversation.send("🎉 Correct guess! You found the confessor!");
+                  // Send the confession as a new message
+                  await group.send(`💬 New Confession: "${result.confession}"`);
+                  // Send the correct guess as a separate message
+                  await group.send(`🎉 ${senderInboxId} correctly guessed who made this confession!`);
+                  log(`[GUESS] User ${senderInboxId} made a correct guess!`);
+                } else {
+                  await conversation.send("❌ Wrong guess. Try again!");
+                  // Send the confession as a new message if it hasn't been sent yet
+                  await group.send(`💬 New Confession: "${result.confession}"`);
+                  // Send the incorrect guess as a separate message
+                  await group.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
+                  log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
+                }
+                continue;
+              } catch (error) {
+                log(`[ERROR] Failed to check guess: ${error}`);
+                await conversation.send("Sorry, I couldn't check your guess. Please try again.");
                 continue;
               }
-              
-              if (result.correct) {
-                await conversation.send("🎉 Correct guess! You found the confessor!");
-                // Send the confession as a new message
-                await socialGroup.send(`💬 New Confession: "${result.confession}"`);
-                // Send the correct guess as a separate message
-                await socialGroup.send(`🎉 ${senderInboxId} correctly guessed who made this confession!`);
-                log(`[GUESS] User ${senderInboxId} made a correct guess!`);
-              } else {
-                await conversation.send("❌ Wrong guess. Try again!");
-                // Send the confession as a new message if it hasn't been sent yet
-                await socialGroup.send(`💬 New Confession: "${result.confession}"`);
-                // Send the incorrect guess as a separate message
-                await socialGroup.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
-                log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
-              }
-              continue;
-            } catch (error) {
-              log(`[ERROR] Failed to check guess: ${error}`);
-              await conversation.send("Sorry, I couldn't check your guess. Please try again.");
+            } else {
+              await conversation.send("Please provide a username after /guess");
               continue;
             }
           }
@@ -246,7 +236,7 @@ export async function listenForMessages(
             if (parsed) {
               try {
                 log(`[DEBUG] Sending confession to social group`);
-                await socialGroup.send(`💬 New Confession: "${parsed.confession}"`);
+                await group.send(`💬 New Confession: "${parsed.confession}"`);
                 
                 log(`[DEBUG] Attempting to save confession`);
                 const saved = await saveConfession(parsed.confession, parsed.username);
@@ -280,7 +270,7 @@ export async function listenForMessages(
             const relayMessage = messageContent.slice(4).trim(); // Remove '/shh' and trim whitespace
             if (relayMessage) {
               try {
-                await socialGroup.send(`🤫 ${relayMessage}`);
+                await group.send(`🤫 ${relayMessage}`);
                 await conversation.send("Message relayed anonymously!");
                 log(`[RELAY] Anonymous message relayed to social group`);
                 continue;
@@ -304,91 +294,44 @@ export async function listenForMessages(
           // --- Proceed only if it's confirmed to be a DM ---
           log(`[DEBUG] Message ${message?.id} is a DM. Proceeding with processing.`);
 
-          let addedToAnnouncements = false;
-          let addedToSocial = false;
-          let alreadyInAnnouncements = false;
-          let alreadyInSocial = false;
+          let addedToConfess = false;
+          let alreadyInConfess = false;
 
-          // Check and add to Announcements group
+          // Check and add to Confess group
           try {
-            const announcementMembers = await announcementsGroup.members();
-            const isMemberAnnouncements = announcementMembers.some(
+            const confessMembers = await group.members();
+            const isMemberConfess = confessMembers.some(
               (member: { inboxId: string }) =>
                 isSameString(member.inboxId, senderInboxId)
             );
 
-            if (!isMemberAnnouncements) {
-              log(
-                `Adding new member ${senderInboxId} to ${announcementsGroup.name}...`
-              );
-              await announcementsGroup.addMembers([senderInboxId]);
-              addedToAnnouncements = true;
-              log(`Added ${senderInboxId} to ${announcementsGroup.name}`);
+            if (!isMemberConfess) {
+              log(`Adding new member ${senderInboxId} to ${group.name}...`);
+              await group.addMembers([senderInboxId]);
+              addedToConfess = true;
+              log(`Added ${senderInboxId} to ${group.name}`);
             } else {
-              alreadyInAnnouncements = true;
+              alreadyInConfess = true;
               log(
-                `User ${senderInboxId} is already a member of ${announcementsGroup.name}`
+                `User ${senderInboxId} is already a member of ${group.name}`
               );
             }
           } catch (e) {
-            log(`[ERROR] Failed to add ${senderInboxId} to ${announcementsGroup.name}: ${e instanceof Error ? e.message : String(e)}`);
-          }
-
-          // Check and add to Social group
-          try {
-            const socialMembers = await socialGroup.members();
-            const isMemberSocial = socialMembers.some(
-              (member: { inboxId: string }) =>
-                isSameString(member.inboxId, senderInboxId)
-            );
-
-            if (!isMemberSocial) {
-              log(`Adding new member ${senderInboxId} to ${socialGroup.name}...`);
-              await socialGroup.addMembers([senderInboxId]);
-              addedToSocial = true;
-              log(`Added ${senderInboxId} to ${socialGroup.name}`);
-            } else {
-              alreadyInSocial = true;
-              log(
-                `User ${senderInboxId} is already a member of ${socialGroup.name}`
-              );
-            }
-          } catch (e) {
-            log(`[ERROR] Failed to add ${senderInboxId} to ${socialGroup.name}: ${e instanceof Error ? e.message : String(e)}`);
+            log(`[ERROR] Failed to add ${senderInboxId} to ${group.name}: ${e instanceof Error ? e.message : String(e)}`);
           }
 
           // Send confirmation message
           let confirmationMessage = "";
-          if (addedToAnnouncements && addedToSocial) {
-            confirmationMessage = `You've been added to the "${announcementsGroup.name}" and "${socialGroup.name}" groups. You'll see the chat in your requests when a new message is sent!`;
-          } else if (addedToAnnouncements && alreadyInSocial) {
-            confirmationMessage = `You've been added to the "${announcementsGroup.name}" group. You were already in the "${socialGroup.name}" group.`;
-          } else if (addedToSocial && alreadyInAnnouncements) {
-            confirmationMessage = `You've been added to the "${socialGroup.name}" group. You were already in the "${announcementsGroup.name}" group.`;
-          } else if (addedToAnnouncements) { // Only added to announcements, implies not in social before and successfully added
-            confirmationMessage = `You've been added to the "${announcementsGroup.name}" group. We tried to add you to "${socialGroup.name}" as well.`;
-          } else if (addedToSocial) { // Only added to social, implies not in announcements before and successfully added
-            confirmationMessage = `You've been added to the "${socialGroup.name}" group. We tried to add you to "${announcementsGroup.name}" as well.`;
-          } else if (alreadyInAnnouncements && alreadyInSocial) {
-            confirmationMessage = `You're already a member of both the "${announcementsGroup.name}" and "${socialGroup.name}" groups!`;
+          if (addedToConfess) {
+            confirmationMessage = `You've been added to the "${group.name}" group. You'll see the chat in your requests when a new message is sent!`;
+          } else if (alreadyInConfess) {
+            confirmationMessage = `You're already a member of the "${group.name}" group!`;
           } else {
-            // Fallback for other combinations (e.g., already in one, failed to add to other)
-            let messageParts = [];
-            if (addedToAnnouncements) messageParts.push(`added to "${announcementsGroup.name}"`);
-            else if (alreadyInAnnouncements) messageParts.push(`already in "${announcementsGroup.name}"`);
-
-            if (addedToSocial) messageParts.push(`added to "${socialGroup.name}"`);
-            else if (alreadyInSocial) messageParts.push(`already in "${socialGroup.name}"`);
-
-            if (messageParts.length > 0) {
-              confirmationMessage = `Your status: ${messageParts.join(' and ')}. Check your message requests.`;
-            } else {
-               confirmationMessage = "Your group membership status has been processed. Check your message requests.";
-            }
+            confirmationMessage = "We tried to add you to the group but encountered an error. Please try again later.";
           }
 
           if (confirmationMessage) {
-               await conversation.send(confirmationMessage);
+            await conversation.send(confirmationMessage);
           }
 
         } catch (processingError: unknown) {

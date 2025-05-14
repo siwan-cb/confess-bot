@@ -5,7 +5,7 @@ dotenv.config();
 import { Client, type XmtpEnv } from "@xmtp/node-sdk";
 import { createSigner, getEncryptionKeyFromHex, getDbPath} from "./helpers/client.js";
 import { logAgentDetails, validateEnvironment, log } from "./helpers/utils.js";
-import { findOrCreateBaseSummitGroups } from "./offsite.js";
+import { findOrCreateConfessGroup } from "./offsite.js";
 import { listenForMessages } from "./stream.js";
 
 const { WALLET_KEY, ENCRYPTION_KEY, XMTP_ENV } = validateEnvironment([
@@ -32,13 +32,13 @@ async function main() {
   logAgentDetails(address, client.inboxId, XMTP_ENV);
 
   // Get or create the Base Summit groups
-  const baseSummitGroups = await findOrCreateBaseSummitGroups(client);
+  const confessGroup = await findOrCreateConfessGroup(client);
 
   log("Syncing conversations...");
   await client.conversations.sync();
 
   log("Listening for messages...");
-  await listenForMessages(client, baseSummitGroups);
+  await listenForMessages(client, confessGroup);
 }
 
 main().catch((error) => {

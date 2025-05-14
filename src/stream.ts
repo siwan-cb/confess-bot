@@ -51,6 +51,7 @@ async function saveConfession(confession: string, username: string) {
       question: confession,
       answer: username,
       isComplete: false,
+      incorrectGuesses: 0,
       timestamp: new Date().toISOString()
     });
     
@@ -85,6 +86,21 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
     if (isCorrect) {
       // Update isComplete to true when guessed correctly
       latestConfession.isComplete = true;
+      await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
+    } else {
+      // Increment incorrect guesses counter
+      latestConfession.incorrectGuesses = (latestConfession.incorrectGuesses || 0) + 1;
+      
+      // If we've reached 5 incorrect guesses, mark as complete
+      if (latestConfession.incorrectGuesses >= 5) {
+        latestConfession.isComplete = true;
+        await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
+        return { 
+          correct: false, 
+          error: "Game over! 5 incorrect guesses reached. The confessor remains anonymous. A new game can now begin!" 
+        };
+      }
+      
       await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
     }
     

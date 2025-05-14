@@ -10,15 +10,47 @@ const RETRY_DELAY_MS = 10000; // Delay between retries in milliseconds (10 secon
 // Helper function to pause execution
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Helper function to parse confession and username
+function parseConfession(content: string): { confession: string; username: string } | null {
+  // Find the last @ symbol in the content
+  const atIndex = content.lastIndexOf('@');
+  if (atIndex === -1) return null;
+  
+  // Get everything before the @ as the confession (including spaces)
+  const confession = content.substring(0, atIndex);
+  // Get everything after the @ as the username
+  const username = content.slice(atIndex + 1).trim();
+  
+  // Validate that we have both parts
+  if (!confession || !username) return null;
+  
+  return { confession, username };
+}
+
+// Helper function to check if there's an active game
+async function hasActiveGame(): Promise<boolean> {
+  try {
+    const gamePath = path.join(process.cwd(), 'src', 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
+    
+    // Check if there's any question that's not complete
+    return gameData.questions.some((q: any) => !q.isComplete);
+  } catch (error) {
+    log(`[ERROR] Failed to check active game: ${error}`);
+    return false;
+  }
+}
+
 // Helper function to save confession to game.json
-async function saveConfession(confession: string, confessorAddress: string) {
+async function saveConfession(confession: string, username: string) {
   try {
     const gamePath = path.join(process.cwd(), 'src', 'game.json');
     const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
     
     gameData.questions.push({
       question: confession,
-      answer: confessorAddress,
+      answer: username,
+      isComplete: false,
       timestamp: new Date().toISOString()
     });
     
@@ -42,8 +74,15 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
       return { correct: false };
     }
 
-    // Case-insensitive comparison of wallet addresses
+    // Case-insensitive comparison of usernames
     const isCorrect = latestConfession.answer.toLowerCase() === guess.toLowerCase();
+    
+    if (isCorrect) {
+      // Update isComplete to true when guessed correctly
+      latestConfession.isComplete = true;
+      await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
+    }
+    
     return {
       correct: isCorrect,
       confession: latestConfession.question
@@ -130,36 +169,56 @@ export async function listenForMessages(
                 continue;
               }
             } else {
-              await conversation.send("Please provide a wallet address after /guess");
+              await conversation.send("Please provide a username after /guess");
               continue;
             }
           }
 
           // Handle /confess command
           if (messageContent.startsWith('/confess')) {
-            const confession = messageContent.slice('/confess'.length).trim();
-            if (confession) {
+            log(`[DEBUG] ===== CONFESS COMMAND START =====`);
+            const content = messageContent.slice('/confess'.length).trim();
+            log(`[DEBUG] Raw content: "${content}"`);
+            
+            // Check if there's an active game
+            const activeGame = await hasActiveGame();
+            if (activeGame) {
+              await conversation.send("There's already an active confession game. Please wait until it's completed before starting a new one.");
+              continue;
+            }
+            
+            const parsed = parseConfession(content);
+            console.log(parsed);
+            log(`[DEBUG] Parsed result: ${JSON.stringify(parsed)}`);
+            
+            if (parsed) {
               try {
-                // Send confession to social group
-                await socialGroup.send(`💬 New Confession: "${confession}"`);
+                log(`[DEBUG] Sending confession to social group`);
+                await socialGroup.send(`💬 New Confession: "${parsed.confession}"`);
                 
-                // Save to game.json with confessor's address as the answer
-                const saved = await saveConfession(confession, senderInboxId);
+                log(`[DEBUG] Attempting to save confession`);
+                const saved = await saveConfession(parsed.confession, parsed.username);
                 
                 if (saved) {
+                  log(`[DEBUG] Confession saved successfully`);
                   await conversation.send("Confession saved successfully! Others will try to guess who made it.");
-                  log(`[GAME] New confession saved from ${senderInboxId}`);
                 } else {
+                  log(`[DEBUG] Failed to save confession`);
                   await conversation.send("Confession was sent to the group but failed to save. Please try again.");
                 }
+                log(`[DEBUG] ===== CONFESS COMMAND END =====`);
                 continue;
               } catch (error) {
-                log(`[ERROR] Failed to process confession: ${error}`);
+                log(`[ERROR] Error processing confession: ${error}`);
+                if (error instanceof Error) {
+                  log(`[ERROR] Error stack: ${error.stack}`);
+                }
                 await conversation.send("Sorry, I couldn't process your confession. Please try again.");
                 continue;
               }
             } else {
-              await conversation.send("Please provide a confession after /confess");
+              log(`[DEBUG] Invalid confession format`);
+              await conversation.send("Please provide your confession with your basename starting with @. Example: '/confess I like pancakes @yourname'");
               continue;
             }
           }

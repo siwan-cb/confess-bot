@@ -16,8 +16,8 @@ function parseConfession(content: string): { confession: string; username: strin
   const atIndex = content.lastIndexOf('@');
   if (atIndex === -1) return null;
   
-  // Get everything before the @ as the confession (including spaces)
-  const confession = content.substring(0, atIndex);
+  // Get everything before the @ as the confession and trim trailing whitespace
+  const confession = content.substring(0, atIndex).trimEnd();
   // Get everything after the @ as the username
   const username = content.slice(atIndex + 1).trim();
   

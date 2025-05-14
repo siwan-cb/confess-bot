@@ -80,8 +80,10 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
       return { correct: false, error: "This confession has already been guessed correctly. Wait for a new confession!" };
     }
 
-    // Case-insensitive comparison of usernames
-    const isCorrect = latestConfession.answer.toLowerCase() === guess.toLowerCase();
+    // Convert both answer and guess to lowercase for case-insensitive comparison
+    const normalizedAnswer = latestConfession.answer.toLowerCase();
+    const normalizedGuess = guess.toLowerCase();
+    const isCorrect = normalizedAnswer === normalizedGuess;
     
     if (isCorrect) {
       // Update isComplete to true when guessed correctly
@@ -171,39 +173,44 @@ export async function listenForMessages(
           const messageContent = message.content?.toString() || "";
           if (messageContent.startsWith('/guess')) {
             const guess = messageContent.slice('/guess'.length).trim();
-            if (guess) {
-              try {
-                log(`[GUESS] User ${senderInboxId} guessed: ${guess}`);
-                const result = await checkGuess(guess);
-                
-                if (result.error) {
-                  await conversation.send(result.error);
-                  continue;
-                }
-                
-                if (result.correct) {
-                  await conversation.send("🎉 Correct guess! You found the confessor!");
-                  // Send the confession as a new message
-                  await socialGroup.send(`💬 New Confession: "${result.confession}"`);
-                  // Send the correct guess as a separate message
-                  await socialGroup.send(`🎉 ${senderInboxId} correctly guessed who made this confession!`);
-                  log(`[GUESS] User ${senderInboxId} made a correct guess!`);
-                } else {
-                  await conversation.send("❌ Wrong guess. Try again!");
-                  // Send the confession as a new message if it hasn't been sent yet
-                  await socialGroup.send(`💬 New Confession: "${result.confession}"`);
-                  // Send the incorrect guess as a separate message
-                  await socialGroup.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
-                  log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
-                }
-                continue;
-              } catch (error) {
-                log(`[ERROR] Failed to check guess: ${error}`);
-                await conversation.send("Sorry, I couldn't check your guess. Please try again.");
+            if (!guess) {
+              await conversation.send(
+                "To make a guess, use the format:\n" +
+                "/guess [username]\n\n" +
+                "Example:\n" +
+                "/guess alice"
+              );
+              continue;
+            }
+            
+            try {
+              log(`[GUESS] User ${senderInboxId} guessed: ${guess}`);
+              const result = await checkGuess(guess);
+              
+              if (result.error) {
+                await conversation.send(result.error);
                 continue;
               }
-            } else {
-              await conversation.send("Please provide a username after /guess");
+              
+              if (result.correct) {
+                await conversation.send("🎉 Correct guess! You found the confessor!");
+                // Send the confession as a new message
+                await socialGroup.send(`💬 New Confession: "${result.confession}"`);
+                // Send the correct guess as a separate message
+                await socialGroup.send(`🎉 ${senderInboxId} correctly guessed who made this confession!`);
+                log(`[GUESS] User ${senderInboxId} made a correct guess!`);
+              } else {
+                await conversation.send("❌ Wrong guess. Try again!");
+                // Send the confession as a new message if it hasn't been sent yet
+                await socialGroup.send(`💬 New Confession: "${result.confession}"`);
+                // Send the incorrect guess as a separate message
+                await socialGroup.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
+                log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
+              }
+              continue;
+            } catch (error) {
+              log(`[ERROR] Failed to check guess: ${error}`);
+              await conversation.send("Sorry, I couldn't check your guess. Please try again.");
               continue;
             }
           }
@@ -218,6 +225,17 @@ export async function listenForMessages(
             const activeGame = await hasActiveGame();
             if (activeGame) {
               await conversation.send("There's already an active confession game. Please wait until it's completed before starting a new one.");
+              continue;
+            }
+            
+            // If no content provided, send instructions
+            if (!content) {
+              await conversation.send(
+                "To make a confession, use the format:\n" +
+                "/confess [your confession] @[your name]\n\n" +
+                "Example:\n" +
+                "/confess I love pizza @alice"
+              );
               continue;
             }
             

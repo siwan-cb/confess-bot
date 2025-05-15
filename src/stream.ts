@@ -188,11 +188,10 @@ export async function listenForMessages(
               }
               
               if (result.correct) {
-                await conversation.send("🎉 Correct guess! You found the confessor!");
                 // Send the confession as a new message
                 await group.send(`🌶️🌶️🌶️ Confession: "${result.confession}"`);
                 // Send the correct guess as a separate message
-                await group.send(`🎉 ${senderInboxId} correctly guessed who made this confession!`);
+                await group.send(`🎉🎉🎉 ${senderInboxId} correctly guessed who made this confession! 🎉🎉🎉`);
                 log(`[GUESS] User ${senderInboxId} made a correct guess!`);
               } else {
                 await conversation.send("❌ Wrong guess. Try again!");

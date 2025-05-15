@@ -332,11 +332,11 @@ export async function listenForMessages(
           }
 
           const instructions = "Welcome to the Confession Game! Here's how to play:\n\n" +
-              "1. Make a confession:\n" 
-              "   /confess [your confession] @[your name]\n" 
-              "   Example: /confess I love pizza @alice\n\n" 
-              "2. Guess who made a confession:\n" 
-              "   /guess [username]\n" 
+              "1. Make a confession:\n" +
+              "   /confess [your confession] @[your name]\n" +
+              "   Example: /confess I love pizza @alice\n\n" +
+              "2. Guess who made a confession:\n" +
+              "   /guess [username]\n" +
               "   Example: /guess alice\n\n";
 
           // Send confirmation message

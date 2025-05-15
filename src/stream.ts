@@ -337,7 +337,7 @@ export async function listenForMessages(
               "   Example: /confess I love pizza @alice\n\n" +
               "2. Guess who made a confession:\n" +
               "   /guess [username]\n" +
-              "   Example: /guess alice\n\n";
+              "   Example: /guess alice";
 
           // Send confirmation message
           let confirmationMessage = "";

@@ -343,38 +343,29 @@ export async function listenForMessages(
             log(`[ERROR] Failed to add ${senderInboxId} to ${group.name}: ${e instanceof Error ? e.message : String(e)}`);
           }
 
+          const instructions = "Welcome to the Confession Game! Here's how to play:\n\n" +
+              "1. Make a confession:\n" 
+              "   /confess [your confession] @[your name]\n" 
+              "   Example: /confess I love pizza @alice\n\n" 
+              "2. Guess who made a confession:\n" 
+              "   /guess [username]\n" 
+              "   Example: /guess alice\n\n";
+
           // Send confirmation message
           let confirmationMessage = "";
           if (addedToConfess) {
-            confirmationMessage = 
-              `Welcome to the Confession Game! Here's how to play:
-
-1. Make a confession to confess.base.eth:
-   /confess [your confession] @[your name]
-   Example: /confess I love pizza @alice
-
-2. Guess who made a confession in the group:
-   /guess [username]
-   Example: /guess alice
-`;
+            confirmationMessage = `You've been added to the "${group.name}" group. You'll see the chat in your requests when a new message is sent!`;
           } else if (alreadyInConfess) {
-            confirmationMessage = 
-              `Welcome to the Confession Game! Here's how to play:
-
-1. Make a confession to confess.base.eth:
-   /confess [your confession] @[your name]
-   Example: /confess I love pizza @alice
-
-2. Guess who made a confession in the group:
-   /guess [username]
-   Example: /guess alice
-`;
+            confirmationMessage = instructions;
           } else {
             confirmationMessage = "We tried to add you to the group but encountered an error. Please try again later.";
           }
 
           if (confirmationMessage) {
             await conversation.send(confirmationMessage);
+            if (addedToConfess) {
+              await conversation.send(instructions);
+            }
           }
 
         } catch (processingError: unknown) {

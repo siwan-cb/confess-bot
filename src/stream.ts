@@ -347,20 +347,20 @@ export async function listenForMessages(
           let confirmationMessage = "";
           if (addedToConfess) {
             confirmationMessage = `You've been added to the "${group.name}" group. You'll see the chat in your requests when a new message is sent! "Welcome to the Confession Game! Here's how to play:\n\n" +
-              "1. Make a confession:\n" +
-              "   /confess [your confession] @[your name]\n" +
-              "   Example: /confess I love pizza @alice\n\n" +
-              "2. Guess who made a confession:\n" +
-              "   /guess [username]\n" +
+              "1. Make a confession to confess.base.eth:\n" 
+              "   /confess [your confession] @[your name]\n" 
+              "   Example: /confess I love pizza @alice\n\n" 
+              "2. Guess who made a confession in the group:\n" 
+              "   /guess [username]\n" 
               "   Example: /guess alice\n\n"`;
           } else if (alreadyInConfess) {
             confirmationMessage = 
               "Welcome to the Confession Game! Here's how to play:\n\n" +
-              "1. Make a confession:\n" +
-              "   /confess [your confession] @[your name]\n" +
-              "   Example: /confess I love pizza @alice\n\n" +
-              "2. Guess who made a confession:\n" +
-              "   /guess [username]\n" +
+              "1. Make a confession to confess.base.eth:\n" 
+              "   /confess [your confession] @[your name]\n" 
+              "   Example: /confess I love pizza @alice\n\n" 
+              "2. Guess who made a confession in the group:\n" 
+              "   /guess [username]\n" 
               "   Example: /guess alice\n\n";
           } else {
             confirmationMessage = "We tried to add you to the group but encountered an error. Please try again later.";

@@ -69,33 +69,28 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
     const gamePath = path.join(process.cwd(), 'src', 'game.json');
     const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
     
-    // Get the most recent confession
-    const latestConfession = gameData.questions[gameData.questions.length - 1];
-    if (!latestConfession) {
+    // Find the oldest incomplete confession
+    const nextConfession = gameData.questions.find((q: any) => !q.isComplete);
+    if (!nextConfession) {
       return { correct: false, error: "No game found" };
-    }
-
-    // Check if the latest confession is already complete
-    if (latestConfession.isComplete) {
-      return { correct: false, error: "This confession has already been guessed correctly. Wait for a new confession!" };
     }
 
     // Remove @ symbol from guess if present and normalize both answer and guess
     const normalizedGuess = guess.replace('@', '').toLowerCase();
-    const normalizedAnswer = latestConfession.answer.toLowerCase();
+    const normalizedAnswer = nextConfession.answer.toLowerCase();
     const isCorrect = normalizedAnswer === normalizedGuess;
     
     if (isCorrect) {
       // Update isComplete to true when guessed correctly
-      latestConfession.isComplete = true;
+      nextConfession.isComplete = true;
       await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
     } else {
       // Increment incorrect guesses counter
-      latestConfession.incorrectGuesses = (latestConfession.incorrectGuesses || 0) + 1;
+      nextConfession.incorrectGuesses = (nextConfession.incorrectGuesses || 0) + 1;
       
       // If we've reached 5 incorrect guesses, mark as complete
-      if (latestConfession.incorrectGuesses >= 5) {
-        latestConfession.isComplete = true;
+      if (nextConfession.incorrectGuesses >= 5) {
+        nextConfession.isComplete = true;
         await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
         return { 
           correct: false, 
@@ -108,7 +103,7 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
     
     return {
       correct: isCorrect,
-      confession: latestConfession.question
+      confession: nextConfession.question
     };
   } catch (error) {
     log(`[ERROR] Failed to check guess: ${error}`);
@@ -215,13 +210,6 @@ export async function listenForMessages(
             const content = messageContent.slice('/confess'.length).trim();
             log(`[DEBUG] Raw content: "${content}"`);
             
-            // Check if there's an active game
-            const activeGame = await hasActiveGame();
-            if (activeGame) {
-              await conversation.send("There's already an active confession game. Please wait until it's completed before starting a new one.");
-              continue;
-            }
-
             // Check if user is in the group and add them if not
             try {
               const groupMembers = await group.members();

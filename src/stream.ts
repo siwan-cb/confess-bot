@@ -351,9 +351,10 @@ export async function listenForMessages(
 
           if (confirmationMessage) {
             await conversation.send(confirmationMessage);
-            if (addedToConfess) {
-              await conversation.send(instructions);
-            }
+          }
+
+          if (addedToConfess) {
+            await conversation.send(instructions);
           }
 
         } catch (processingError: unknown) {

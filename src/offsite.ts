@@ -2,8 +2,8 @@ import { Client, IdentifierKind, type Group, DecodedMessage, GroupPermissionsOpt
 import { log, isSameString } from "./helpers/utils.js";
 import { Signer } from "ethers";
 
-const BASE_SUMMIT_ADMIN_ADDRESS = "0x80D36e772b32288F80227Ce35EDd5F4eCCDEbB6E"; // Admin address for Base Summit groups
-const CONFESS_GROUP_NAME = "🌶️🌶️ CONFESS 🌶️🌶️";
+const BASE_SUMMIT_ADMIN_ADDRESS = "0x80245b9C0d2Ef322F2554922cA86Cf211a24047F"; // Admin address for Base Summit groups
+const CONFESS_GROUP_NAME = "🌶️🌶️ GUESS 🌶️🌶️";
 
 // Helper to find a group by its name
 const findGroupByName = async (client: Client, groupName: string): Promise<Group | undefined> => {

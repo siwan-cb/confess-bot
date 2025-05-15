@@ -63,8 +63,16 @@ async function saveConfession(confession: string, username: string) {
   }
 }
 
+// Add type definition for checkGuess return value
+type CheckGuessResult = {
+  correct: boolean;
+  confession?: string;
+  error?: string;
+  nextConfession?: string;
+};
+
 // Helper function to check guess
-async function checkGuess(guess: string): Promise<{ correct: boolean; confession?: string; error?: string }> {
+async function checkGuess(guess: string): Promise<CheckGuessResult> {
   try {
     const gamePath = path.join(process.cwd(), 'src', 'game.json');
     const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
@@ -101,9 +109,13 @@ async function checkGuess(guess: string): Promise<{ correct: boolean; confession
       await fs.writeFile(gamePath, JSON.stringify(gameData, null, 2));
     }
     
+    // Find the next incomplete confession after this one
+    const nextIncompleteConfession = gameData.questions.find((q: any) => !q.isComplete);
+    
     return {
       correct: isCorrect,
-      confession: nextConfession.question
+      confession: nextConfession.question,
+      nextConfession: nextIncompleteConfession?.question
     };
   } catch (error) {
     log(`[ERROR] Failed to check guess: ${error}`);
@@ -188,6 +200,11 @@ export async function listenForMessages(
                 // Send the correct guess as a separate message
                 await group.send(`🎉🎉🎉 ${senderInboxId} correctly guessed who made this confession! 🎉🎉🎉`);
                 log(`[GUESS] User ${senderInboxId} made a correct guess!`);
+                
+                // If there's a next confession, broadcast it
+                if (result.nextConfession) {
+                  await group.send(`🌶️🌶️🌶️ Next Confession: "${result.nextConfession}"`);
+                }
               } else {
                 await conversation.send("❌ Wrong guess. Try again!");
                 // Send the confession as a new message if it hasn't been sent yet
@@ -195,6 +212,11 @@ export async function listenForMessages(
                 // Send the incorrect guess as a separate message
                 await group.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
                 log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
+                
+                // If there's a next confession (meaning this one is complete due to 5 wrong guesses), broadcast it
+                if (result.nextConfession) {
+                  await group.send(`🌶️🌶️🌶️ Next Confession: "${result.nextConfession}"`);
+                }
               }
               continue;
             } catch (error) {
@@ -292,6 +314,28 @@ export async function listenForMessages(
               }
             } else {
               await conversation.send("Please provide a message after /shh");
+              continue;
+            }
+          }
+
+          // Handle /current command
+          if (messageContent.startsWith('/current')) {
+            try {
+              const gamePath = path.join(process.cwd(), 'src', 'game.json');
+              const gameData = JSON.parse(await fs.readFile(gamePath, 'utf-8'));
+              
+              // Find the oldest incomplete confession
+              const currentConfession = gameData.questions.find((q: any) => !q.isComplete);
+              
+              if (currentConfession) {
+                await conversation.send(`🌶️🌶️🌶️ Current Confession to Guess: "${currentConfession.question}"`);
+              } else {
+                await conversation.send("There is no active confession to guess right now. Use /confess to start a new one!");
+              }
+              continue;
+            } catch (error) {
+              log(`[ERROR] Failed to get current confession: ${error}`);
+              await conversation.send("Sorry, I couldn't retrieve the current confession. Please try again.");
               continue;
             }
           }

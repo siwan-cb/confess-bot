@@ -1,5 +1,5 @@
 import { Client, DecodedMessage, Group } from "@xmtp/node-sdk";
-import { getAddressFromXMTPIdentity, isSameString, log } from "./helpers/utils.js";
+import { getAddressFromXMTPIdentity, getTruncatedAddress, isSameString, log } from "./helpers/utils.js";
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -204,25 +204,26 @@ export async function listenForMessages(
               }
 
               const address = await getAddressFromXMTPIdentity(client, senderInboxId);
+              const truncatedAddress = getTruncatedAddress(address);
               
               if (result.correct) {
                 // Send the confession as a new message
                 await group.send(`🌶️🌶️🌶️ Confession: "${result.confession}"`);
                 // Send the correct guess as a separate message
-                await group.send(`🎉🎉🎉 ${senderInboxId} correctly guessed who made this confession! 🎉🎉🎉`);
-                log(`[GUESS] User ${senderInboxId} made a correct guess!`);
+                await group.send(`🎉🎉🎉 ${truncatedAddress} correctly guessed who made this confession! 🎉🎉🎉`);
+                log(`[GUESS] User ${truncatedAddress} made a correct guess!`);
                 
                 // If there's a next confession and this one is complete, broadcast it
                 if (result.nextConfession && result.isComplete) {
                   await group.send(`🌶️🌶️🌶️ Next Confession: "${result.nextConfession}"`);
                 }
               } else {
-                await conversation.send(`❌ User ${address} made a wrong guess. Try again! Guessed: ${guess}`);
+                await conversation.send(`❌ User ${truncatedAddress} made a wrong guess. Try again! Guessed: ${guess}`);
                 // Send the confession as a new message if it hasn't been sent yet
                 await group.send(`🌶️🌶️🌶️ Confession: "${result.confession}"`);
                 // Send the incorrect guess as a separate message
                 // await group.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
-                log(`[GUESS] User ${address} made an incorrect guess`);
+                log(`[GUESS] User ${truncatedAddress} made an incorrect guess`);
               }
               continue;
             } catch (error) {

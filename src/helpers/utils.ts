@@ -1,3 +1,4 @@
+import { Client } from "@xmtp/node-sdk";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -29,4 +30,13 @@ export function log(message: string) {
 
 export function isSameString(a?: string, b?: string) {
   return a?.toLowerCase() === b?.toLowerCase();
+}
+
+export async function getAddressFromXMTPIdentity(client: Client, inboxId: string) {
+  const preferences = await client.preferences.inboxStateFromInboxIds([inboxId], false);
+  return preferences[0]?.identifiers[0]?.identifier.toLowerCase();
+}
+
+export function getTruncatedAddress(address: string) {
+  return address.slice(0, 6) + "..." + address.slice(-4);
 }

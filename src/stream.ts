@@ -1,5 +1,5 @@
 import { Client, DecodedMessage, Group } from "@xmtp/node-sdk";
-import { isSameString, log } from "./helpers/utils.js";
+import { getAddressFromXMTPIdentity, isSameString, log } from "./helpers/utils.js";
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -176,6 +176,7 @@ export async function listenForMessages(
 
           // Handle /guess command
           const messageContent = message.content?.toString() || "";
+
           if (messageContent.startsWith('/guess')) {
             const guess = messageContent.slice('/guess'.length).trim();
             if (!guess) {
@@ -201,6 +202,8 @@ export async function listenForMessages(
                 }
                 continue;
               }
+
+              const address = await getAddressFromXMTPIdentity(client, senderInboxId);
               
               if (result.correct) {
                 // Send the confession as a new message
@@ -214,12 +217,12 @@ export async function listenForMessages(
                   await group.send(`🌶️🌶️🌶️ Next Confession: "${result.nextConfession}"`);
                 }
               } else {
-                await conversation.send(`❌ Wrong guess. Try again! Guessed: ${guess}`);
+                await conversation.send(`❌ User ${address} made a wrong guess. Try again! Guessed: ${guess}`);
                 // Send the confession as a new message if it hasn't been sent yet
                 await group.send(`🌶️🌶️🌶️ Confession: "${result.confession}"`);
                 // Send the incorrect guess as a separate message
                 // await group.send(`❌ ${senderInboxId} guessed "${guess}" - Not correct, keep trying!`);
-                log(`[GUESS] User ${senderInboxId} made an incorrect guess`);
+                log(`[GUESS] User ${address} made an incorrect guess`);
               }
               continue;
             } catch (error) {
